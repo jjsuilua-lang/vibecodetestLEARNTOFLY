@@ -6,12 +6,20 @@ canvas.height = window.innerHeight;
 
 let gameStarted = false;
 let gravity = 0.4;
-let drag = 0.995;
+let airDrag = 0.998;
+
 let groundY = canvas.height - 120;
 
+// Ramp setup
+let rampStartX = 150;
+let rampEndX = 350;
+let rampHeight = 120;
+
+let launched = false;
+
 let penguin = {
-    x: 200,
-    y: groundY - 20,
+    x: rampStartX,
+    y: groundY - 5,
     radius: 20,
     vx: 0,
     vy: 0,
@@ -33,7 +41,8 @@ document.getElementById("startBtn").onclick = () => {
 };
 
 canvas.addEventListener("mousedown", (e) => {
-    if (!gameStarted) return;
+    if (!gameStarted || launched) return;
+
     dragging = true;
     dragStart = {x: e.clientX, y: e.clientY};
 });
@@ -49,9 +58,10 @@ canvas.addEventListener("mouseup", () => {
         let dx = dragStart.x - dragCurrent.x;
         let dy = dragStart.y - dragCurrent.y;
 
-        penguin.vx = dx * 0.15;
-        penguin.vy = dy * 0.15;
+        penguin.vx = dx * 0.2;
+        penguin.vy = dy * 0.2;
 
+        launched = true;
         dragging = false;
     }
 });
@@ -71,30 +81,33 @@ window.addEventListener("keyup", (e) => {
 function update() {
     if (!gameStarted) return;
 
-    penguin.vy += gravity;
+    if (launched) {
+        penguin.vy += gravity;
 
-    if (penguin.boosting && penguin.fuel > 0) {
-        penguin.vy -= 0.6;
-        penguin.fuel -= 0.5;
+        if (penguin.boosting && penguin.fuel > 0) {
+            penguin.vy -= 0.6;
+            penguin.fuel -= 0.5;
+        }
+
+        penguin.vx *= airDrag;
+        penguin.vy *= airDrag;
+
+        penguin.x += penguin.vx;
+        penguin.y += penguin.vy;
+
+        // Ground collision
+        if (penguin.y > groundY - penguin.radius) {
+            penguin.y = groundY - penguin.radius;
+            penguin.vy *= -0.4;
+        }
+
+        cameraX = penguin.x - 200;
+        distanceTravelled = Math.max(distanceTravelled, Math.floor(penguin.x / 10));
+
+        document.getElementById("distance").innerText = distanceTravelled;
+        document.getElementById("speed").innerText = Math.floor(Math.abs(penguin.vx));
+        document.getElementById("fuel").innerText = Math.floor(penguin.fuel);
     }
-
-    penguin.vx *= drag;
-    penguin.vy *= drag;
-
-    penguin.x += penguin.vx;
-    penguin.y += penguin.vy;
-
-    if (penguin.y > groundY - penguin.radius) {
-        penguin.y = groundY - penguin.radius;
-        penguin.vy *= -0.4;
-    }
-
-    cameraX = penguin.x - 200;
-    distanceTravelled = Math.max(distanceTravelled, Math.floor(penguin.x / 10));
-
-    document.getElementById("distance").innerText = distanceTravelled;
-    document.getElementById("speed").innerText = Math.floor(Math.abs(penguin.vx));
-    document.getElementById("fuel").innerText = Math.floor(penguin.fuel);
 }
 
 function drawGround() {
@@ -105,9 +118,11 @@ function drawGround() {
 function drawRamp() {
     ctx.fillStyle = "#cccccc";
     ctx.beginPath();
-    ctx.moveTo(-cameraX + 100, groundY);
-    ctx.lineTo(-cameraX + 200, groundY - 100);
-    ctx.lineTo(-cameraX + 300, groundY);
+    ctx.moveTo(rampStartX - cameraX, groundY);
+    ctx.lineTo(rampEndX - cameraX, groundY - rampHeight);
+    ctx.lineTo(rampEndX + 40 - cameraX, groundY - rampHeight);
+    ctx.lineTo(rampStartX + 40 - cameraX, groundY);
+    ctx.closePath();
     ctx.fill();
 }
 
