@@ -5,22 +5,21 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let gameStarted = false;
-let gravity = 0.4;
-let airDrag = 0.998;
+let gravity = 0.5;
+let airDrag = 0.999;
 
 let groundY = canvas.height - 120;
 
-// Ramp setup
-let rampStartX = 150;
-let rampEndX = 350;
-let rampHeight = 120;
+let rampStartX = 200;
+let rampEndX = 400;
+let rampHeight = 140;
 
 let launched = false;
 
 let penguin = {
     x: rampStartX,
-    y: groundY - 5,
-    radius: 20,
+    y: groundY - 10,
+    radius: 25,
     vx: 0,
     vy: 0,
     fuel: 100,
@@ -43,8 +42,19 @@ document.getElementById("startBtn").onclick = () => {
 canvas.addEventListener("mousedown", (e) => {
     if (!gameStarted || launched) return;
 
-    dragging = true;
-    dragStart = {x: e.clientX, y: e.clientY};
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left + cameraX;
+    const mouseY = e.clientY - rect.top;
+
+    const dx = mouseX - penguin.x;
+    const dy = mouseY - penguin.y;
+
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < penguin.radius) {
+        dragging = true;
+        dragStart = {x: e.clientX, y: e.clientY};
+    }
 });
 
 canvas.addEventListener("mousemove", (e) => {
@@ -58,8 +68,8 @@ canvas.addEventListener("mouseup", () => {
         let dx = dragStart.x - dragCurrent.x;
         let dy = dragStart.y - dragCurrent.y;
 
-        penguin.vx = dx * 0.2;
-        penguin.vy = dy * 0.2;
+        penguin.vx = dx * 0.3;
+        penguin.vy = dy * 0.3;
 
         launched = true;
         dragging = false;
@@ -85,8 +95,8 @@ function update() {
         penguin.vy += gravity;
 
         if (penguin.boosting && penguin.fuel > 0) {
-            penguin.vy -= 0.6;
-            penguin.fuel -= 0.5;
+            penguin.vy -= 0.8;
+            penguin.fuel -= 0.6;
         }
 
         penguin.vx *= airDrag;
@@ -95,13 +105,12 @@ function update() {
         penguin.x += penguin.vx;
         penguin.y += penguin.vy;
 
-        // Ground collision
         if (penguin.y > groundY - penguin.radius) {
             penguin.y = groundY - penguin.radius;
-            penguin.vy *= -0.4;
+            penguin.vy *= -0.3;
         }
 
-        cameraX = penguin.x - 200;
+        cameraX = penguin.x - 300;
         distanceTravelled = Math.max(distanceTravelled, Math.floor(penguin.x / 10));
 
         document.getElementById("distance").innerText = distanceTravelled;
@@ -116,12 +125,12 @@ function drawGround() {
 }
 
 function drawRamp() {
-    ctx.fillStyle = "#cccccc";
+    ctx.fillStyle = "#bbbbbb";
     ctx.beginPath();
     ctx.moveTo(rampStartX - cameraX, groundY);
     ctx.lineTo(rampEndX - cameraX, groundY - rampHeight);
-    ctx.lineTo(rampEndX + 40 - cameraX, groundY - rampHeight);
-    ctx.lineTo(rampStartX + 40 - cameraX, groundY);
+    ctx.lineTo(rampEndX + 50 - cameraX, groundY - rampHeight);
+    ctx.lineTo(rampStartX + 50 - cameraX, groundY);
     ctx.closePath();
     ctx.fill();
 }
@@ -134,18 +143,26 @@ function drawPenguin() {
 
     ctx.fillStyle = "white";
     ctx.beginPath();
-    ctx.arc(penguin.x - cameraX - 5, penguin.y - 5, 6, 0, Math.PI * 2);
+    ctx.arc(penguin.x - cameraX - 7, penguin.y - 7, 8, 0, Math.PI * 2);
     ctx.fill();
 }
 
 function drawDragLine() {
     if (dragging) {
         ctx.strokeStyle = "red";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(dragStart.x, dragStart.y);
         ctx.lineTo(dragCurrent.x, dragCurrent.y);
         ctx.stroke();
+    }
+}
+
+function drawInstructions() {
+    if (!launched) {
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        ctx.fillText("Click and drag the penguin backwards to launch!", 40, 60);
     }
 }
 
@@ -156,6 +173,7 @@ function draw() {
     drawRamp();
     drawPenguin();
     drawDragLine();
+    drawInstructions();
 }
 
 function gameLoop() {
