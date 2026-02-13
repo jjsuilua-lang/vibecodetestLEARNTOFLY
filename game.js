@@ -1,4 +1,4 @@
-console.log("ARCTIC RAMP SLING LOADED");
+console.log("GAME RUNNING");
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -6,62 +6,35 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const STATE = {
-    MENU: 0,
-    AIMING: 1,
-    SLIDING: 2,
-    FLYING: 3
-};
+const gravity = 0.5;
+const friction = 0.995;
 
-let gameState = STATE.MENU;
-
-const world = {
-    gravity: 0.45,
-    friction: 0.995,
-    groundY: canvas.height - 120
-};
+const groundY = canvas.height - 150;
 
 const ramp = {
-    startX: 250,
-    endX: 500,
-    height: 160,
-    angle: 0
+    startX: 200,
+    endX: 450,
+    height: 180
 };
 
-ramp.angle = Math.atan2(ramp.height, ramp.endX - ramp.startX);
+const rampAngle = Math.atan2(ramp.height, ramp.endX - ramp.startX);
 
 const penguin = {
     x: ramp.startX,
-    y: world.groundY,
+    y: groundY,
     radius: 25,
     vx: 0,
-    vy: 0,
-    fuel: 100,
-    boosting: false,
-    rotation: 0
+    vy: 0
 };
 
+let dragging = false;
+let dragStart = { x: 0, y: 0 };
+let dragCurrent = { x: 0, y: 0 };
+
+let launched = false;
 let cameraX = 0;
-let distance = 0;
 
-let dragData = {
-    active: false,
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0
-};
-
-const particles = [];
-
-document.getElementById("startBtn").onclick = () => {
-    document.getElementById("menu").classList.add("hidden");
-    document.getElementById("hud").classList.remove("hidden");
-    gameState = STATE.AIMING;
-};
-
-canvas.addEventListener("mousedown", e => {
-    if (gameState !== STATE.AIMING) return;
+canvas.addEventListener("mousedown", (e) => {
 
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left + cameraX;
@@ -70,73 +43,111 @@ canvas.addEventListener("mousedown", e => {
     const dx = mx - penguin.x;
     const dy = my - penguin.y;
 
-    if (Math.sqrt(dx*dx + dy*dy) < penguin.radius) {
-        dragData.active = true;
-        dragData.startX = e.clientX;
-        dragData.startY = e.clientY;
+    if (Math.sqrt(dx * dx + dy * dy) < penguin.radius) {
+        dragging = true;
+        dragStart.x = e.clientX;
+        dragStart.y = e.clientY;
     }
 });
 
-canvas.addEventListener("mousemove", e => {
-    if (dragData.active) {
-        dragData.currentX = e.clientX;
-        dragData.currentY = e.clientY;
-    }
+canvas.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    dragCurrent.x = e.clientX;
+    dragCurrent.y = e.clientY;
 });
 
 canvas.addEventListener("mouseup", () => {
-    if (!dragData.active) return;
+    if (!dragging) return;
 
-    const dx = dragData.startX - dragData.currentX;
-    const dy = dragData.startY - dragData.currentY;
+    const dx = dragStart.x - dragCurrent.x;
+    const dy = dragStart.y - dragCurrent.y;
 
-    const power = 0.35;
+    penguin.vx = dx * 0.35;
+    penguin.vy = dy * 0.35;
 
-    penguin.vx = dx * power;
-    penguin.vy = dy * power;
-
-    gameState = STATE.SLIDING;
-    dragData.active = false;
+    launched = true;
+    dragging = false;
 });
 
-window.addEventListener("keydown", e => {
-    if (e.code === "Space" && penguin.fuel > 0) {
-        penguin.boosting = true;
-    }
-});
+function update() {
 
-window.addEventListener("keyup", e => {
-    if (e.code === "Space") {
-        penguin.boosting = false;
-    }
-});
+    if (launched) {
 
-function spawnSnow(x, y) {
-    particles.push({
-        x,
-        y,
-        vx: (Math.random() - 0.5) * 2,
-        vy: Math.random() * -2,
-        life: 40
-    });
-}
+        // Sliding on ramp
+        if (penguin.x < ramp.endX) {
+            penguin.x += penguin.vx;
+            penguin.y = groundY - 
+                ((penguin.x - ramp.startX) * Math.tan(rampAngle));
+        } 
+        else {
+            // Flying
+            penguin.vy += gravity;
 
-function updateParticles() {
-    for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life--;
+            penguin.vx *= friction;
+            penguin.vy *= friction;
 
-        if (p.life <= 0) particles.splice(i, 1);
+            penguin.x += penguin.vx;
+            penguin.y += penguin.vy;
+
+            if (penguin.y > groundY) {
+                penguin.y = groundY;
+                penguin.vy *= -0.4;
+            }
+        }
+
+        cameraX = penguin.x - 300;
     }
 }
 
-function updatePenguin() {
+function drawGround() {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(-cameraX, groundY, canvas.width * 5, 300);
+}
 
-    if (gameState === STATE.SLIDING) {
-        penguin.x += penguin.vx;
-        penguin.y = world.groundY - 
-            ((penguin.x - ramp.startX) * Math.tan(ramp.angle));
+function drawRamp() {
+    ctx.fillStyle = "#cccccc";
+    ctx.beginPath();
+    ctx.moveTo(ramp.startX - cameraX, groundY);
+    ctx.lineTo(ramp.endX - cameraX, groundY - ramp.height);
+    ctx.lineTo(ramp.endX + 40 - cameraX, groundY - ramp.height);
+    ctx.lineTo(ramp.startX + 40 - cameraX, groundY);
+    ctx.fill();
+}
 
-        if (penguin.x >= ramp.endX) {
+function drawPenguin() {
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(penguin.x - cameraX, penguin.y, penguin.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(penguin.x - cameraX - 8, penguin.y - 8, 10, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawDragLine() {
+    if (!dragging) return;
+
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(dragStart.x, dragStart.y);
+    ctx.lineTo(dragCurrent.x, dragCurrent.y);
+    ctx.stroke();
+}
+
+function loop() {
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    update();
+    drawGround();
+    drawRamp();
+    drawPenguin();
+    drawDragLine();
+
+    requestAnimationFrame(loop);
+}
+
+loop();
